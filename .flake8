@@ -1,13 +1,7 @@
 [flake8]
-# Configuration de Flake8 pour Bug Predictor
-
-# Longueur maximale de ligne
 max-line-length = 100
-
-# Complexité cyclomatique maximale
 max-complexity = 15
 
-# Dossiers à exclure
 exclude =
     .git,
     __pycache__,
@@ -22,23 +16,15 @@ exclude =
     htmlcov,
     .tox
 
-# Erreurs à ignorer (ajustez selon vos besoins)
+# Erreurs ignorées
 ignore =
-    E203,  # Whitespace before ':'
-    E266,  # Too many leading '#' for block comment
-    E501,  # Line too long (géré par black)
-    W503,  # Line break before binary operator
-    W504,  # Line break after binary operator
+    E203,
+    E266,
+    E501,
+    W503,
+    W504
 
-# Afficher les erreurs avec numéro de ligne
 show-source = True
 statistics = True
-
-# Formattage de sortie
 format = %(path)s:%(row)d:%(col)d: %(code)s %(text)s
-
-# Fichiers à vérifier
 filename = *.py
-
-# Avertissements comme erreurs
-# strictness = medium
