@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # Application Bug Predictor
+  # ============================================
+  bug-predictor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bug-predictor:latest
+    container_name: bug-predictor-app
+
+    ports:
+      - "8501:8501"
+
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - PYTHONUNBUFFERED=1
+
+    volumes:
+      # Monter les modèles (persistance)
+      - ./models:/app/models:ro
+      # Monter les données (lecture seule)
+      - ./data:/app/data:ro
+      # Résultats (lecture/écriture)
+      - ./results:/app/results
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - bug-predictor-network
+
+    # Limites de ressources
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  bug-predictor-network:
+    driver: bridge

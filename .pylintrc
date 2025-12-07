@@ -1,0 +1,63 @@
+[MASTER]
+# Fichiers/dossiers à ignorer
+ignore=.git,__pycache__,.venv,venv,build,dist
+ignore-patterns=test_.*?py
+
+# Plugins à charger
+load-plugins=
+
+# Utiliser plusieurs processus
+jobs=4
+
+[MESSAGES CONTROL]
+# Désactiver certains messages
+disable=
+    C0111,  # missing-docstring
+    C0103,  # invalid-name
+    R0913,  # too-many-arguments
+    R0914,  # too-many-locals
+    R0903,  # too-few-public-methods
+    W0212,  # protected-access
+    C0301,  # line-too-long (géré par black)
+
+[FORMAT]
+# Longueur maximale de ligne
+max-line-length=100
+
+# Maximum de lignes dans un module
+max-module-lines=1000
+
+# String utilisée pour l'indentation
+indent-string='    '
+
+[BASIC]
+# Longueur min/max des noms de variables
+variable-rgx=[a-z_][a-z0-9_]{0,30}$
+argument-rgx=[a-z_][a-z0-9_]{0,30}$
+attr-rgx=[a-z_][a-z0-9_]{0,30}$
+
+# Noms de constantes
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+
+[DESIGN]
+# Nombre max d'arguments pour une fonction
+max-args=7
+
+# Nombre max de variables locales
+max-locals=20
+
+# Nombre max d'attributs
+max-attributes=12
+
+# Complexité cyclomatique max
+max-complexity=15
+
+[REPORTS]
+# Format de sortie
+output-format=text
+
+# Afficher les statistiques
+reports=yes
+
+# Score minimum
+evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)

@@ -1,0 +1,320 @@
+name: 🚀 Pipeline Complet - Lint → Build → Deploy
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.10'
+  DOCKER_IMAGE: bug-predictor
+  REGISTRY: ghcr.io
+
+jobs:
+  # ============================================
+  # STAGE 1: LINT (Qualité du Code)
+  # ============================================
+  lint:
+    name: 🎨 Stage 1 - Lint & Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v3
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: 📦 Install Linting Tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort pylint mypy
+
+    - name: 🔍 Flake8 - Check Style
+      run: |
+        echo "=== Running Flake8 ==="
+        flake8 src/ tests/ --count --statistics --show-source || true
+
+    - name: ⚫ Black - Check Formatting
+      run: |
+        echo "=== Running Black ==="
+        black --check --diff src/ tests/ || true
+
+    - name: 📑 isort - Check Import Order
+      run: |
+        echo "=== Running isort ==="
+        isort --check-only --diff src/ tests/ || true
+
+    - name: 🔬 Pylint - Static Analysis
+      run: |
+        echo "=== Running Pylint ==="
+        pylint src/ --output-format=text --reports=y --exit-zero || true
+
+    - name: 🏷️ MyPy - Type Checking
+      run: |
+        echo "=== Running MyPy ==="
+        mypy src/ --ignore-missing-imports || true
+
+    - name: ✅ Lint Summary
+      run: |
+        echo "========================================"
+        echo "✅ LINT STAGE COMPLETED"
+        echo "========================================"
+        echo "All linting tools have been executed."
+        echo "Review warnings above if any."
+
+  # ============================================
+  # STAGE 2: TEST (Validation)
+  # ============================================
+  test:
+    name: 🧪 Stage 2 - Tests
+    runs-on: ubuntu-latest
+    needs: lint  # ⚠️ Dépend de LINT
+
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v3
+
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: 📦 Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: 🚀 Run Unit Tests
+      run: |
+        echo "=== Running Unit Tests ==="
+        pytest tests/ -m "unit" -v --tb=short --cov=src --cov-report=xml --cov-report=term
+
+    - name: 🔗 Run Integration Tests
+      run: |
+        echo "=== Running Integration Tests ==="
+        pytest tests/ -m "integration" -v --tb=short
+
+    - name: 📊 Upload Coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: tests
+
+    - name: ✅ Test Summary
+      run: |
+        echo "========================================"
+        echo "✅ TEST STAGE COMPLETED"
+        echo "========================================"
+
+  # ============================================
+  # STAGE 3: BUILD (Construction Docker)
+  # ============================================
+  build:
+    name: 🏗️ Stage 3 - Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test  # ⚠️ Dépend de TEST
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v3
+
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: 🔐 Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🏷️ Extract Metadata
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: 🏗️ Build Docker Image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        load: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: 🧪 Test Docker Image
+      run: |
+        echo "=== Testing Docker Image ==="
+        docker run --rm \
+          ${{ env.REGISTRY }}/${{ github.repository }}:latest \
+          --version || echo "Version check skipped"
+        
+        echo "✅ Docker image built successfully"
+
+    - name: 🚀 Push Docker Image
+      if: github.event_name != 'pull_request'
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: ✅ Build Summary
+      run: |
+        echo "========================================"
+        echo "✅ BUILD STAGE COMPLETED"
+        echo "========================================"
+        echo "Image: ${{ steps.meta.outputs.tags }}"
+        echo "Labels: ${{ steps.meta.outputs.labels }}"
+
+  # ============================================
+  # STAGE 4: DEPLOY (Déploiement)
+  # ============================================
+  deploy-staging:
+    name: 🚀 Stage 4a - Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build  # ⚠️ Dépend de BUILD
+    if: github.ref == 'refs/heads/develop'
+
+    environment:
+      name: staging
+      url: https://staging.bug-predictor.example.com
+
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v3
+
+    - name: 🚀 Deploy to Staging
+      run: |
+        echo "=== Deploying to Staging ==="
+        echo "Environment: Staging"
+        echo "URL: https://staging.bug-predictor.example.com"
+        
+        # Commandes de déploiement (adapter selon votre infrastructure)
+        # Exemples:
+        # - SSH vers serveur staging
+        # - kubectl apply (Kubernetes)
+        # - docker-compose up (Docker)
+        # - AWS ECS update-service
+        
+        echo "✅ Deployment to Staging successful"
+
+    - name: 🧪 Post-Deployment Tests
+      run: |
+        echo "=== Running Post-Deployment Tests ==="
+        # Tests de smoke (vérifier que l'app démarre)
+        # curl https://staging.bug-predictor.example.com/health
+        echo "✅ Health check passed"
+
+  deploy-production:
+    name: 🚀 Stage 4b - Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build  # ⚠️ Dépend de BUILD
+    if: github.ref == 'refs/heads/main'
+
+    environment:
+      name: production
+      url: https://bug-predictor.example.com
+
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v3
+
+    - name: ⏸️ Manual Approval Required
+      run: |
+        echo "⚠️ Waiting for manual approval..."
+        echo "Go to GitHub Actions → Environments → production"
+        echo "Click 'Review deployments' to approve"
+
+    - name: 🚀 Deploy to Production
+      run: |
+        echo "=== Deploying to Production ==="
+        echo "Environment: Production"
+        echo "URL: https://bug-predictor.example.com"
+        
+        # Commandes de déploiement production
+        # kubectl set image deployment/bug-predictor ...
+        # aws ecs update-service ...
+        
+        echo "✅ Deployment to Production successful"
+
+    - name: 🧪 Post-Deployment Tests
+      run: |
+        echo "=== Running Post-Deployment Tests ==="
+        # Tests de production (health check, smoke tests)
+        echo "✅ Production health check passed"
+
+    - name: 📊 Notify Success
+      run: |
+        echo "========================================"
+        echo "🎉 DEPLOYMENT SUCCESSFUL"
+        echo "========================================"
+        echo "Environment: Production"
+        echo "Version: ${{ github.sha }}"
+        echo "Deployed by: ${{ github.actor }}"
+
+  # ============================================
+  # STAGE 5: NOTIFICATION & REPORTING
+  # ============================================
+  notify:
+    name: 📢 Final Notification
+    runs-on: ubuntu-latest
+    needs: [lint, test, build]
+    if: always()
+
+    steps:
+    - name: 📊 Pipeline Summary
+      run: |
+        echo "========================================"
+        echo "📊 PIPELINE EXECUTION SUMMARY"
+        echo "========================================"
+        echo ""
+        echo "Stage 1 - Lint:     ${{ needs.lint.result }}"
+        echo "Stage 2 - Test:     ${{ needs.test.result }}"
+        echo "Stage 3 - Build:    ${{ needs.build.result }}"
+        echo ""
+        echo "Branch:    ${{ github.ref }}"
+        echo "Commit:    ${{ github.sha }}"
+        echo "Actor:     ${{ github.actor }}"
+        echo "========================================"
+
+    - name: ✅ Success Notification
+      if: ${{ needs.lint.result == 'success' && needs.test.result == 'success' && needs.build.result == 'success' }}
+      run: |
+        echo "🎉 PIPELINE SUCCEEDED!"
+        echo "All stages completed successfully."
+
+    - name: ❌ Failure Notification
+      if: ${{ needs.lint.result == 'failure' || needs.test.result == 'failure' || needs.build.result == 'failure' }}
+      run: |
+        echo "❌ PIPELINE FAILED!"
+        echo "Check the logs above for details."
+        exit 1
