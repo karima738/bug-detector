@@ -1,0 +1,40 @@
+# Machine Learning
+scikit-learn==1.3.2
+imbalanced-learn==0.11.0
+joblib==1.3.2
+
+# Data Manipulation
+pandas==2.1.3
+numpy==1.26.2
+scipy==1.11.4
+
+# Visualization
+matplotlib==3.8.2
+seaborn==0.13.0
+plotly==5.18.0
+
+# Interface
+streamlit==1.29.0
+
+# Utilities
+python-dateutil==2.8.2
+
+# ============================================
+# TESTS ET QUALITÉ DU CODE
+# ============================================
+
+# Framework de test
+pytest==7.4.3                    # Framework principal
+pytest-cov==4.1.0                # Couverture de code
+pytest-mock==3.12.0              # Mocking pour test
+pytest-xdist==3.5.0              # Tests parallèles
+
+# Qualité du code
+flake8==6.1.0                    # Linter Python
+black==23.11.0                   # Formatteur de code
+pylint==3.0.2                    # Analyse statique
+mypy==1.7.1                      # Type checking
+
+# Documentation
+sphinx==7.2.6                    # Génération doc
+sphinx-rtd-theme==2.0.0         # Thème ReadTheDocs

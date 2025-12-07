@@ -1,0 +1,10 @@
+{
+    "model_name": "Balanced Random Forest",
+    "accuracy": 75.77346617724174,
+    "precision": 33.79073756432247,
+    "recall": 72.16117216117216,
+    "f1_score": 46.02803738317757,
+    "n_features": 38,
+    "n_samples_train": 7626,
+    "n_samples_test": 1907
+}
